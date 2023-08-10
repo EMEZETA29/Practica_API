@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Practica_API.Datos;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.EntityFrameworkCore;
+using AutoMapper;
 
 namespace Practica_API.Controllers
 {
@@ -14,19 +15,24 @@ namespace Practica_API.Controllers
     {
         private readonly ILogger<PracticaController> _logger;
         private readonly ApplicationDbContext _db;
+        private readonly IMapper _mapper;
 
-        public PracticaController(ILogger<PracticaController> logger, ApplicationDbContext db)
+        public PracticaController(ILogger<PracticaController> logger, ApplicationDbContext db, IMapper mapper)
         {
             _logger = logger;
             _db = db;
+            _mapper = mapper;
 
         }
         [HttpGet]
         [ProducesResponseType(StatusCodes.Status200OK)]
-        public ActionResult<IEnumerable<PracticaDto>> GetPracticas()
+
+        public async Task<ActionResult<IEnumerable<PracticaDto>>> GetPracticas()
         {
             _logger.LogInformation("Obtener registros");
-            return Ok(_db.Practicas.ToList());
+
+            IEnumerable<Practica> practicaList = await _db.Practicas.ToListAsync();
+            return Ok(_mapper.Map<IEnumerable<PracticaDto>>(practicaList));
             
         }
 
@@ -34,7 +40,7 @@ namespace Practica_API.Controllers
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public ActionResult<PracticaDto> GetPractica(int id)
+        public async Task<ActionResult<PracticaDto>> GetPractica(int id)
         {
             if (id == 0)
             {
@@ -42,58 +48,45 @@ namespace Practica_API.Controllers
                 return BadRequest();
             }
             //var practica = PracticaStore.practicaList.FirstOrDefault(p=> p.Id==id);
-            var practica = _db.Practicas.FirstOrDefault(p=> p.Id == id);
+            var practica = await _db.Practicas.FirstOrDefaultAsync(p=> p.Id == id);
 
             if (practica == null)
             {
                 return NotFound();
             }
 
-            return Ok(practica);
+            return Ok(_mapper.Map<PracticaDto>(practica));
         }
 
         [HttpPost]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public ActionResult<PracticaDto> CrearPractica([FromBody] PracticaDto practicaDto)
+        public async Task<ActionResult<PracticaDto>> CrearPractica([FromBody] PracticaCreateDto createDto)
         {
             if(!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
 
-            if (_db.Practicas.FirstOrDefault(p => p.Nombre.ToLower() == practicaDto.Nombre.ToLower()) !=null)
+            if (await _db.Practicas.FirstOrDefaultAsync(p => p.Nombre.ToLower() == createDto.Nombre.ToLower()) !=null)
             {
                 ModelState.AddModelError("NombreExiste", "Este nombre ya existe");
                 return BadRequest(ModelState);            
             }
 
-            if(practicaDto ==null)
+            if(createDto == null)
             {
-                return BadRequest(practicaDto);
-            }
-            if(practicaDto.Id>0)
-            {
-                return StatusCode(StatusCodes.Status500InternalServerError);
+                return BadRequest(createDto);
             }
 
-            Practica modelo = new()
-            {
-                Nombre = practicaDto.Nombre,
-                Detalle = practicaDto.Detalle,
-                ImagenUrl = practicaDto.ImagenUrl,
-                Ocupantes = practicaDto.Ocupantes,
-                Tarifa = practicaDto.Tarifa,
-                Espacio = practicaDto.Espacio,
-                Amenidad = practicaDto.Amenidad
-            };
+            Practica modelo = _mapper.Map<Practica>(createDto);
 
-            _db.Practicas.Add(modelo);
-            _db.SaveChanges();
+            await _db.Practicas.AddAsync(modelo);
+            await _db.SaveChangesAsync();
 
             
-            return CreatedAtRoute("GetPractica", new {id=practicaDto.Id}, practicaDto);
+            return CreatedAtRoute("GetPractica", new {id=modelo.Id}, modelo);
 
         }
 
@@ -101,19 +94,19 @@ namespace Practica_API.Controllers
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public IActionResult DeletePractica(int id)
+        public async Task<IActionResult> DeletePractica(int id)
         {
             if(id==0)
             {
                 return BadRequest();
             }
-            var practica = _db.Practicas.FirstOrDefault(p=>p.Id==id);
+            var practica = await _db.Practicas.FirstOrDefaultAsync(p=>p.Id==id);
             if(practica == null)
             {
                 return NotFound();
             }
             _db.Practicas.Remove(practica);
-            _db.SaveChanges();
+            await _db.SaveChangesAsync();
 
             return NoContent();
         
@@ -122,57 +115,34 @@ namespace Practica_API.Controllers
         [HttpPut("{id:int}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public IActionResult UpdatePractica(int id, [FromBody] PracticaDto practicaDto)
+        public async Task<IActionResult> UpdatePractica(int id, [FromBody] PracticaUpdateDto updateDto)
         {
-            if(practicaDto== null || id!= practicaDto.Id)
+            if(updateDto== null || id!= updateDto.Id)
             {
                 return BadRequest();
             }
-            //var practica = PracticaStore.practicaList.FirstOrDefault(p=>p.Id==id);
-            //practica.Nombre = practicaDto.Nombre;
-            //practica.Ocupantes = practicaDto.Ocupantes;
-            //practica.Espacio = practicaDto.Espacio;
 
-            Practica modelo = new()
-            {
-                Id = practicaDto.Id,
-                Nombre = practicaDto.Nombre,
-                Detalle = practicaDto.Detalle,
-                ImagenUrl = practicaDto.ImagenUrl,
-                Ocupantes = practicaDto.Ocupantes,
-                Tarifa = practicaDto.Tarifa,
-                Espacio = practicaDto.Espacio,
-                Amenidad = practicaDto.Amenidad
-            };
+
+            Practica modelo = _mapper.Map<Practica>(updateDto);
+            
 
             _db.Practicas.Update(modelo);
-            _db.SaveChanges();
-
+            await _db.SaveChangesAsync();
             return NoContent();
         }
 
         [HttpPatch("{id:int}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public IActionResult UpdatePartialPractica(int id, JsonPatchDocument<PracticaDto> patchDto)
+        public async Task<IActionResult> UpdatePartialPractica(int id, JsonPatchDocument<PracticaUpdateDto> patchDto)
         {
             if (patchDto == null || id == 0)
             {
                 return BadRequest();
             }
-            var practica = _db.Practicas.AsNoTracking().FirstOrDefault(p => p.Id == id);
+            var practica = await _db.Practicas.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id);
 
-            PracticaDto practicaDto = new()
-            {
-                Id = practica.Id,
-                Nombre = practica.Nombre,
-                Detalle = practica.Detalle,
-                ImagenUrl = practica.ImagenUrl,
-                Ocupantes = practica.Ocupantes,
-                Tarifa = practica.Tarifa,
-                Espacio = practica.Espacio,
-                Amenidad = practica.Amenidad
-            };
+            PracticaUpdateDto practicaDto = _mapper.Map<PracticaUpdateDto>(practica);
 
             if (practica == null) return BadRequest();
 
@@ -183,20 +153,10 @@ namespace Practica_API.Controllers
                 return BadRequest(ModelState);
             }
 
-            Practica modelo = new()
-            {
-                Id = practicaDto.Id,
-                Nombre = practicaDto.Nombre,
-                Detalle = practicaDto.Detalle,
-                ImagenUrl = practicaDto.ImagenUrl,
-                Ocupantes = practicaDto.Ocupantes,
-                Tarifa = practicaDto.Tarifa,
-                Espacio = practicaDto.Espacio,
-                Amenidad = practicaDto.Amenidad
-            };
+            Practica modelo = _mapper.Map<Practica>(practicaDto);
 
             _db.Practicas.Update(modelo);
-            _db.SaveChanges();
+            await _db.SaveChangesAsync();
             return NoContent();
 
         }
