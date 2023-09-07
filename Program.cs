@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Practica_API;
 using Practica_API.Datos;
+using Practica_API.Repositorio;
+using Practica_API.Repositorio.IRepositorio;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,6 +20,9 @@ builder.Services.AddDbContext<ApplicationDbContext>(option =>
 });
 
 builder.Services.AddAutoMapper(typeof(MappingConfig));
+
+builder.Services.AddScoped<IPracticaRepositorio, PracticaRepositorio>();
+builder.Services.AddScoped<INumeroPracticaRepositorio, NumeroPracticaRepositorio>();
 
 var app = builder.Build();
 

@@ -14,6 +14,10 @@ namespace Practica_API
             CreateMap<Practica, PracticaCreateDto>().ReverseMap();
             CreateMap<Practica, PracticaUpdateDto>().ReverseMap();
 
+            CreateMap<NumeroPractica, NumeroPracticaDto>().ReverseMap();
+            CreateMap<NumeroPractica, NumeroPracticaCreateDto>().ReverseMap();
+            CreateMap<NumeroPractica, NumeroPracticaUpdateDto>().ReverseMap();
+
 
         
         }

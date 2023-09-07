@@ -10,6 +10,7 @@ namespace Practica_API.Datos
 
         }
         public DbSet<Practica> Practicas { get; set; }
+        public DbSet<NumeroPractica> NumeroPracticas { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

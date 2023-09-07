@@ -13,33 +13,35 @@ namespace Practica_API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class PracticaController : ControllerBase
+    public class NumeroPracticaController : ControllerBase
     {
-        private readonly ILogger<PracticaController> _logger;
+        private readonly ILogger<NumeroPracticaController> _logger;
         private readonly IPracticaRepositorio _practicaRepo;
+        private readonly INumeroPracticaRepositorio _numeroRepo;
         private readonly IMapper _mapper;
         protected APIResponse _response;
 
-        public PracticaController(ILogger<PracticaController> logger, IPracticaRepositorio practicaRepo, IMapper mapper)
+        public NumeroPracticaController(ILogger<NumeroPracticaController> logger, IPracticaRepositorio practicaRepo, INumeroPracticaRepositorio numeroRepo, IMapper mapper)
         {
             _logger = logger;
             _practicaRepo = practicaRepo;
             _mapper = mapper;
             _response = new();
+            _numeroRepo = numeroRepo;
 
         }
         [HttpGet]
         [ProducesResponseType(StatusCodes.Status200OK)]
 
-        public async Task<ActionResult<APIResponse>> GetPracticas()
+        public async Task<ActionResult<APIResponse>> GetNumeroPracticas()
         {
             try
             {
                 _logger.LogInformation("Obtener registros");
 
-                IEnumerable<Practica> practicaList = await _practicaRepo.ObtenerTodos();
+                IEnumerable<NumeroPractica> numeroPracticaList = await _numeroRepo.ObtenerTodos();
 
-                _response.Resultado = _mapper.Map<IEnumerable<PracticaDto>>(practicaList);
+                _response.Resultado = _mapper.Map<IEnumerable<NumeroPracticaDto>>(numeroPracticaList);
                 _response.statusCode = HttpStatusCode.OK;
 
                 return Ok(_response);
@@ -53,32 +55,32 @@ namespace Practica_API.Controllers
             
         }
 
-        [HttpGet("id:int", Name ="GetPractica")]
+        [HttpGet("id:int", Name ="GetNumeroPractica")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<APIResponse>> GetPractica(int id)
+        public async Task<ActionResult<APIResponse>> GetNumeroPractica(int id)
         {
             try
             {
                 if (id == 0)
                 {
-                    _logger.LogError("Error al traer registro con Id" + id);
+                    _logger.LogError("Error al traer Numero registro con Id" + id);
                     _response.statusCode = HttpStatusCode.BadRequest;
                     _response.IsExitoso = false;
                     return BadRequest(_response);
                 }
                 //var practica = PracticaStore.practicaList.FirstOrDefault(p=> p.Id==id);
-                var practica = await _practicaRepo.Obtener(p => p.Id == id);
+                var numeroPractica = await _numeroRepo.Obtener(p => p.PracticaNo == id);
 
-                if (practica == null)
+                if (numeroPractica == null)
                 {
                     _response.statusCode = HttpStatusCode.NotFound;
                     _response.IsExitoso = false;
                     return NotFound(_response);
                 }
 
-                _response.Resultado = _mapper.Map<PracticaDto>(practica);
+                _response.Resultado = _mapper.Map<NumeroPracticaDto>(numeroPractica);
                 _response.statusCode = HttpStatusCode.OK;
 
                 return Ok(_response);
@@ -97,7 +99,7 @@ namespace Practica_API.Controllers
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<APIResponse>> CrearPractica([FromBody] PracticaCreateDto createDto)
+        public async Task<ActionResult<APIResponse>> CrearNumeroPractica([FromBody] NumeroPracticaCreateDto createDto)
         {
             try
             {
@@ -106,26 +108,27 @@ namespace Practica_API.Controllers
                     return BadRequest(ModelState);
                 }
 
-                if (await _practicaRepo.Obtener(p => p.Nombre.ToLower() == createDto.Nombre.ToLower()) != null)
+                if (await _numeroRepo.Obtener(p => p.PracticaNo == createDto.PracticaNo) != null)
                 {
-                    ModelState.AddModelError("NombreExiste", "Este nombre ya existe");
+                    ModelState.AddModelError("NombreExiste", "Este numero ya existe");
                     return BadRequest(ModelState);
                 }
 
-                if (createDto == null)
+                if (await _practicaRepo.Obtener(p=>p.Id==createDto.PracticaId) == null)
                 {
-                    return BadRequest(createDto);
+                    ModelState.AddModelError("ClaveForanea", "Este Id no existe");
+                    return BadRequest(ModelState);
                 }
 
-                Practica modelo = _mapper.Map<Practica>(createDto);
+                NumeroPractica modelo = _mapper.Map<NumeroPractica>(createDto);
 
                 modelo.FechaCreacion = DateTime.Now;
                 modelo.FechaActualizacion = DateTime.Now;
-                await _practicaRepo.Crear(modelo);
+                await _numeroRepo.Crear(modelo);
                 _response.Resultado = modelo;
                 _response.statusCode = HttpStatusCode.Created;
 
-                return CreatedAtRoute("GetPractica", new { id = modelo.Id }, _response);
+                return CreatedAtRoute("GetPractica", new { id = modelo.PracticaNo }, _response);
 
             }
             catch (Exception ex)
@@ -143,7 +146,7 @@ namespace Practica_API.Controllers
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> DeletePractica(int id)
+        public async Task<IActionResult> DeleteNumeroPractica(int id)
         {
             try
             {
@@ -153,14 +156,14 @@ namespace Practica_API.Controllers
                     _response.statusCode = HttpStatusCode.BadRequest;
                     return BadRequest(_response);
                 }
-                var practica = await _practicaRepo.Obtener(p => p.Id == id);
-                if (practica == null)
+                var numeroPractica = await _numeroRepo.Obtener(p => p.PracticaNo == id);
+                if (numeroPractica == null)
                 {
                     _response.IsExitoso = false;
                     _response.statusCode = HttpStatusCode.NotFound;
                     return NotFound(_response);
                 }
-                await _practicaRepo.Remover(practica);
+                await _numeroRepo.Remover(numeroPractica);
 
                 _response.statusCode = HttpStatusCode.NoContent;
                 return Ok(_response);
@@ -179,55 +182,31 @@ namespace Practica_API.Controllers
         [HttpPut("{id:int}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> UpdatePractica(int id, [FromBody] PracticaUpdateDto updateDto)
+        public async Task<IActionResult> UpdateNumeroPractica(int id, [FromBody] NumeroPracticaUpdateDto updateDto)
         {
-            if(updateDto== null || id!= updateDto.Id)
+            if(updateDto== null || id!= updateDto.PracticaNo)
             {
                 _response.IsExitoso = false;
                 _response.statusCode = HttpStatusCode.BadRequest;
                 return BadRequest();
             }
 
-
-            Practica modelo = _mapper.Map<Practica>(updateDto);
-            
-
-            await _practicaRepo.Actualizar(modelo);
-            _response.statusCode = HttpStatusCode.NoContent;
-
-            return Ok(_response);
-        }
-
-        [HttpPatch("{id:int}")]
-        [ProducesResponseType(StatusCodes.Status204NoContent)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> UpdatePartialPractica(int id, JsonPatchDocument<PracticaUpdateDto> patchDto)
-        {
-            if (patchDto == null || id == 0)
+            if(await _practicaRepo.Obtener(p=>p.Id == updateDto.PracticaId) == null)
             {
-                return BadRequest();
-            }
-            var practica = await _practicaRepo.Obtener(p => p.Id == id, tracked:false);
-
-            PracticaUpdateDto practicaDto = _mapper.Map<PracticaUpdateDto>(practica);
-
-            if (practica == null) return BadRequest();
-
-            patchDto.ApplyTo(practicaDto, ModelState);
-
-            if (!ModelState.IsValid)
-            {
+                ModelState.AddModelError("ClaveForanea", "El Id de no existe!");
                 return BadRequest(ModelState);
             }
 
-            Practica modelo = _mapper.Map<Practica>(practicaDto);
+            NumeroPractica modelo = _mapper.Map<NumeroPractica>(updateDto);
+            
 
-            await _practicaRepo.Actualizar(modelo);
+            await _numeroRepo.Actualizar(modelo);
             _response.statusCode = HttpStatusCode.NoContent;
 
             return Ok(_response);
-
         }
+
+
 
     }
 }
